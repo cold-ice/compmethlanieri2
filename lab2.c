@@ -99,10 +99,10 @@ int main(int argc, char* argv[]) {
 	}
 
 	N=atoi(argv[2]);
-	if( (arch==1 && N%8!=0) || (arch==2 && N%16!=0) ){
+/*	if( (arch==1 && N%8!=0) || (arch==2 && N%16!=0) ){
 		printf("Inappropriate vector size, must be a multiple of 8 for sse4, a multiple of 16 for avx2 or a multiple of 32 for avx512.\n");
 		abort();
-	}
+	}*/
 	xv=malloc(N*sizeof(int16_t));	
 	yv=malloc(N*sizeof(int16_t));
 	zv=malloc(N*sizeof(int16_t));
