@@ -64,6 +64,17 @@ void componentwise_multiply_real_avx2(int16_t *x, int16_t *y, int16_t *z, uint16
 	}
 }
 
+void componentwise_multiply_real_avx2_opt(int16_t *x, int16_t *y, int16_t *z, uint16_t N) {
+	uint16_t i;
+	for(i=0; i<N; i+=16){
+		__m256i *x256 = (__m256i *)&x[i];
+		__m256i *y256 = (__m256i *)&y[i];
+		__m256i *z256 = (__m256i *)&z[i];
+ 		*z256 = _mm256_mulhrs_epi16(*x256, *y256);
+		//printf("%hu %d\n", i/8, z[i]);
+	}
+}
+
 /*void componentwise_multiply_real_avx512(int16_t *x, int16_t *y, int16_t *z, uint16_t N) {
 	uint16_t i;
 	for(i=0; i<N; i+=32){
@@ -91,21 +102,21 @@ int main(int argc, char* argv[]) {
 		printf("architecture must be between 0-2\n");
 		abort();
 	} else if(arch==0) {
-		sprintf(archs, "Scalar");
+		snprintf(archs, 6, "Scalar");
 	} else if(arch==1) {
-		sprintf(archs, "SSE4");
+		snprintf(archs, 6, "SSE4");
 	} else if(arch==2) {
-		sprintf(archs, "AVX2");
+		snprintf(archs, 6, "AVX2");
 	}
 
 	N=atoi(argv[2]);
-/*	if( (arch==1 && N%8!=0) || (arch==2 && N%16!=0) ){
+	if(N%16!=0) {
 		printf("Inappropriate vector size, must be a multiple of 8 for sse4, a multiple of 16 for avx2 or a multiple of 32 for avx512.\n");
 		abort();
-	}*/
-	xv=malloc(N*sizeof(int16_t));	
-	yv=malloc(N*sizeof(int16_t));
-	zv=malloc(N*sizeof(int16_t));
+	}
+	xv=aligned_alloc(32, N*sizeof(int16_t));	
+	yv=aligned_alloc(32, N*sizeof(int16_t));
+	zv=aligned_alloc(32, N*sizeof(int16_t));
 
 	Ntest=atoi(argv[3]);
 
@@ -136,19 +147,17 @@ int main(int argc, char* argv[]) {
 	}
 	//printf("Z:\n");
 	reset_meas(&ts);
+	start_meas(&ts);
 	for(i=0; i<Ntest; i++){
 		switch(arch){	
 			case 0:
-				start_meas(&ts);
 				componentwise_multiply_real_scalar(xv, yv, zv, N);
 				break;
 			case 1:
-				start_meas(&ts);
 				componentwise_multiply_real_sse4(xv, yv, zv, N);
 				break;
 			case 2:
-				start_meas(&ts);
-				componentwise_multiply_real_avx2(xv, yv, zv, N);
+				componentwise_multiply_real_avx2_opt(xv, yv, zv, N);
 				break;
 			/*case 3:
 				componentwise_multiply_real_avx512(xv, yv, zv, N);
@@ -157,8 +166,8 @@ int main(int argc, char* argv[]) {
 				printf("Invalid argument for architecture: %d. It must be between 0 and 2.\n", arch);
 				break;
 		}
-		stop_meas(&ts);
 	}
+	stop_meas(&ts);
 	printf("%s\t%hu\t%lld\t%lld\n", archs, N, ts.diff/Ntest, ts.max);
 	z=fopen("Z", "w");
 	if(z==NULL){
