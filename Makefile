@@ -8,10 +8,10 @@ UTIL_OBJS += lab2.o
 OBJ = $(UTIL_OBJS)
 
 all: $(OBJ)
-	$(CC) $(CFLAGS) $(OBJ) -o lab2
+	$(CC) $(CFLAGS) $(OBJ) -o lab2f
 
 %.o : %.c
-	$(CC) -c $(CFLAGS) $< 
+	$(CC) -c $(CFLAGS) -Ofast $< 
 
 clean:
 	rm -f *.o 

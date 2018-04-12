@@ -1,4 +1,4 @@
 #!/bin/bash
 
-for d in $(seq 0 2); do for b in $(seq 16 16 16000); do ./lab2$2 $d $b $1 >> data; done; done
+for d in $(seq 0 2); do for b in $(seq 16 16 16000); do ./lab2$2 $d $b $1 >> data$2; done; done
 
