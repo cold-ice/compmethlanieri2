@@ -5,9 +5,9 @@ clc
 test=0;
 arch=0;
 
- As= sprintf('~/Documents/Eurecom/CompMeth/assignment2/work/dataf_scalar');
- Bs= sprintf('~/Documents/Eurecom/CompMeth/assignment2/work/dataf_sse4');
- Cs= sprintf('~/Documents/Eurecom/CompMeth/assignment2/work/dataf_avx2');
+ As= sprintf('~/Documents/Eurecom/CompMeth/assignment2/work/plot/dataf_scalar');
+ Bs= sprintf('~/Documents/Eurecom/CompMeth/assignment2/work/plot/dataf_sse4');
+ Cs= sprintf('~/Documents/Eurecom/CompMeth/assignment2/work/plot/dataf_avx2');
 
  A=readtable(As);
  B=readtable(Bs);
