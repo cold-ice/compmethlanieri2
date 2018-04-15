@@ -176,20 +176,6 @@ int main(int argc, char* argv[]) {
 	reset_meas(&ts);
 	start_meas(&ts);
 	for(i=0; i<Ntest; i++){
-		/*switch(arch){	
-			case 0:
-				componentwise_multiply_real_scalar(xv, yv, zv, N);
-				break;
-			case 1:
-				componentwise_multiply_real_sse4(xv, yv, zv, N);
-				break;
-			case 2:
-				componentwise_multiply_real_avx2_opt(xv, yv, zv, N);
-	 			break;
-			default:
-				printf("Invalid argument for architecture: %d. It must be between 0 and 2.\n", arch);
-				break;
-		}*/
 		#ifdef scalar
 			componentwise_multiply_real_scalar(xv, yv, zv, N);
 		#endif
