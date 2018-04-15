@@ -1,7 +1,9 @@
 #!/bin/bash
 
-for b in $(seq 16 16 16000); do ./lab2s $b $1 >>plot/datas$2; done;
+rm plot/datas$2 plot/datasse4$2 plot/datavx2$2;
 
-for b in $(seq 16 16 16000); do ./lab2sse4 $b $1 >>plot/datasse4$2; done;
+for b in $(seq 16 16 16000); do ./lab2s$2 $b $1 >> plot/datas$2; done;
 
-for b in $(seq 16 16 16000); do ./lab2avx2 $b $1 >>plot/dataavx2$2; done;
+for b in $(seq 16 16 16000); do ./lab2sse4$2 $b $1 >> plot/datasse4$2; done;
+
+for b in $(seq 16 16 16000); do ./lab2avx2$2 $b $1 >> plot/dataavx2$2; done;

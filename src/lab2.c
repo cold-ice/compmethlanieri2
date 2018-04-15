@@ -65,10 +65,11 @@ void componentwise_multiply_real_sse4(int16_t *x, int16_t *y, int16_t *z, uint16
 }
 #endif
 
+		// This function was used before knowing about the existence of the aligned_alloc facility. The new version, in principle, allows to better compare the performance of the AVX2 implementation with respect to SSE4 since the setup of the componentwise_multiply_real functions are identical, with the exception of the data type.
+
 /*void componentwise_multiply_real_avx2(int16_t *x, int16_t *y, int16_t *z, uint16_t N) {
 	uint16_t i;
 	for(i=0; i<N; i+=16){
-		// This function was used before knowing about the existence of the aligned_alloc facility. The new version, in principle, allows to better compare the performance of the AVX2 implementation with respect to SSE4 since the setup of the componentwise_multiply_real functions are identical, with the exception of the data type.
 		__m256i x256 = _mm256_loadu_si256((__m256i *)&x[i]);
 		__m256i y256 = _mm256_loadu_si256((__m256i *)&y[i]);
  		x256 = _mm256_mulhrs_epi16(x256, y256);
@@ -95,8 +96,9 @@ void componentwise_multiply_real_avx2_opt(int16_t *x, int16_t *y, int16_t *z, ui
 }
 #endif
 
-// Not yet tested as it is not possible to compile the following function without without the appropriate architecture
-/*void componentwise_multiply_real_avx512(int16_t *x, int16_t *y, int16_t *z, uint16_t N) {
+// Not yet tested as it is not possible to compile the following function without the appropriate architecture
+#ifdef AVX512
+void componentwise_multiply_real_avx512(int16_t *x, int16_t *y, int16_t *z, uint16_t N) {
 	uint16_t i;
 	for(i=0; i<N; i+=32){
 		__m512i x512 = _mm512_loadu_si512((__m512i *)&x[i]);
@@ -104,7 +106,8 @@ void componentwise_multiply_real_avx2_opt(int16_t *x, int16_t *y, int16_t *z, ui
  		x512 = _mm512_mulhrs_epi16(x512, y512);
 		_mm512_storeu_si512((__m512i *)&z[i], x512);
 	}
-}*/
+}
+#endif
 
 int main(int argc, char* argv[]) {
 
