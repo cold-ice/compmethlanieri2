@@ -39,6 +39,7 @@ inline __m128i cpack(__m128i xre,__m128i xim) {
 void componentwise_multiply_real_scalar(int16_t *x,int16_t *y,int16_t *z,uint16_t N) {
 	int i;
 	for(i=0; i<N; i++){
+		// The result is right shifted by 15 bits since we want to keep the higher part of the result as the other bits represent smaller decimal values. Notice that by doing so the 32nd bit is lost, since only the first 16 bits of the number are saved. However, as previously seen in the first assignment, this doesn't result in an actual loss since, when multiplying two Q15 numbers, the last two MSBs are always identical, hence it suffices to save one to get the correct result with the benefit of an extra bit of precision.
 		z[i]=(int16_t) ( ( (int32_t)x[i]* (int32_t)y[i] ) >> 15);
 		#ifdef DEBUG
 			printf("%hu %d\n", i, z[i]);
@@ -52,6 +53,7 @@ void componentwise_multiply_real_sse4(int16_t *x, int16_t *y, int16_t *z, uint16
 		__m128i *x128 = (__m128i *)&x[i];
 		__m128i *y128 = (__m128i *)&y[i];
 		__m128i *z128 = (__m128i *)&z[i];
+		// The mulhrs version was chosen out of the various multiplication functions since it is the most suitable one. As it allows to preserve the most useful part of the result (namely bits 30 to 15) and rounds it before storing it in memory. Refer to https://software.intel.com/sites/landingpage/IntrinsicsGuide/#expand=3704,3725&text=_mm_mulhrs_epi16. Notice that the epi16 at the end of the function name specifies the number of bits of each element to be multiplied.
  		*z128 = _mm_mulhrs_epi16(*x128, *y128);
 		#ifdef DEBUG
 			printf("%hu %d\n", i/8, z[i]);
@@ -62,7 +64,7 @@ void componentwise_multiply_real_sse4(int16_t *x, int16_t *y, int16_t *z, uint16
 void componentwise_multiply_real_avx2(int16_t *x, int16_t *y, int16_t *z, uint16_t N) {
 	uint16_t i;
 	for(i=0; i<N; i+=16){
-		// The following, commented code was used before knowing of the existence of the aligned_alloc facility. The new version, in principle, allows to better compare the performance of the AVX2 implementation with respect to SSE4 since the setup of the componentwise_multiply_real functions are identical, with the exception of the data type.
+		// The following commented code was used before knowing of the existence of the aligned_alloc facility. The new version, in principle, allows to better compare the performance of the AVX2 implementation with respect to SSE4 since the setup of the componentwise_multiply_real functions are identical, with the exception of the data type.
 		/*__m256i x256 = _mm256_loadu_si256((__m256i *)&x[i]);
 		__m256i y256 = _mm256_loadu_si256((__m256i *)&y[i]);
  		x256 = _mm256_mulhrs_epi16(x256, y256);
@@ -70,6 +72,7 @@ void componentwise_multiply_real_avx2(int16_t *x, int16_t *y, int16_t *z, uint16
 		__m256i *x256 = (__m256i *)&x[i];
 		__m256i *y256 = (__m256i *)&y[i];
 		__m256i *z256 = (__m256i *)&z[i];
+		// The mulhrs multiplication function was employed in the AVX2 case as well. Please refer to the description of the SSE4 version to have more detailed information. 
  		*z256 = _mm256_mulhrs_epi16(*x256, *y256);
 		#ifdef DEBUG
 			printf("%hu %d\n", i/16, z[i]);
@@ -125,24 +128,25 @@ int main(int argc, char* argv[]) {
 		snprintf(archs, 6, "AVX2");
 	}
 
-	// Given my implementation of the tests the vector size has to be a multiple of 16, otherwise the AVX2 implementation won't have enough input elements at each cycle. Notice that this limitation could have been easily solved by doing N%16, adding the remainder to N and forcing the extra array elements to 0. By the same principle, the SSE4 issue would have been taken care of in a similar manner. This however was not done since it didn't serve any particularly useful purpose. Moreover, in order to better compare the various architectures, it made more sense to properly fill all the vector elements with randomly generated numbers instead of zeros.
+	// Given the implementation, the vector size has to be a multiple of 16, otherwise the AVX2 version will cause a segmentation fault as the multiplication function will try to access non allocated memory sections. Notice that this limitation could have been easily solved by doing N%16, adding the remainder to N and forcing the extra array elements to 0. By the same principle, the issue with the SSE4 version could have been taken care of in a similar manner, with the difference that the number of bits to be added is equal to N%8. This however was not done since it didn't serve any particularly useful purpose. Moreover, in order to better compare the performances of the three implementations, it made more sense to properly fill all the vector elements with randomly generated numbers instead of zeros.
 	N=atoi(argv[2]);
 	if(N%16!=0) {
 		printf("Inappropriate vector size, must be a multiple of 16.\n");
 		abort();
 	}
 
-	//alligned_alloc was used instead of malloc since otherwise the vector elements would not be properly distantiated for the heap when using the AVX2 architecture, causing a segmentation fault. Notice that N*sizeof(int16_t) has to be a multpiple of 32. This constraint is automatically satisfied since I have imposed that N has to be a multiple of 16, and 16*16=256 is already a multiple of 32.
+	// alligned_alloc was used instead of malloc since otherwise the vector elements would not be properly distantiated in the heap when using the AVX2 architecture, causing a segmentation fault. Notice that, given the first parameter, N*sizeof(int16_t) has to be a multpiple of 32. This constraint is automatically satisfied since N has to be a multiple of 16, and 16*16=256 is already a multiple of 32.
 	xv=aligned_alloc(32, N*sizeof(int16_t));	
 	yv=aligned_alloc(32, N*sizeof(int16_t));
 	zv=aligned_alloc(32, N*sizeof(int16_t));
 
-	// Since one test per architecture wouldn't be enough to assess performances in a satisfactory way, multiple tests are to be performed when using a certain vector length. The overall timestamp is then divided by the number of performed tests in order to have an average execution time.
+	// To perform one test per architecture wouldn't be enough to assess performances in a satisfactory way, since the execution of commands happens in a non deterministic manner. Therefore, multiple tests are performed when using a certain vector length. The resulting timestamp is then divided by the number of tests in order to have an average execution time.
 	Ntest=atoi(argv[3]);
 
 	FILE *x, *y, *z;
+	// The input files X and Y contain randomly generated 16 bit numbers. These numbers are large enough so that the Q15 result of the multiplication is generally not equal to 0.
 
-	// Open input file 1 (X) and instantiate first vector
+	// Open input file X and store the first vector. 
 	x=fopen("X", "r");
 	if(x==NULL){
 		printf("X not found\n");
@@ -159,7 +163,7 @@ int main(int argc, char* argv[]) {
 		i++;
 	}
 
-	// Open input file 2 (Y) and instantiate second vector
+	// Open input file Y and store the second vector.
 	y=fopen("Y", "r");
 	if(y==NULL){
 		printf("Y not found\n");
@@ -201,7 +205,7 @@ int main(int argc, char* argv[]) {
 	stop_meas(&ts);
 	printf("%s %hu %lld %lld\n", archs, N, ts.diff/Ntest, ts.max);
 
-	// Write results in the output file Z. This is rather useless for testing purposes, however this allowed to assess the correct functionality of the SSE4 and AVX2 functions.
+	// Write results in the output file Z. This is rather useless for testing purposes and it solely allowed to assess the correct functionality of the various multiplication functions.
 	z=fopen("Z", "w");
 	if(z==NULL){
 		printf("Couldn't create Z\n");
