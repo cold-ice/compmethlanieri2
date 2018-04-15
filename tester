@@ -1,4 +1,7 @@
 #!/bin/bash
 
-for d in $(seq 0 2); do for b in $(seq 16 16 16000); do ./lab2$2 $d $b $1 >>plot/data$d$2; done; done
+for b in $(seq 16 16 16000); do ./lab2s $b $1 >>plot/datas$2; done;
 
+for b in $(seq 16 16 16000); do ./lab2sse4 $b $1 >>plot/datasse4$2; done;
+
+for b in $(seq 16 16 16000); do ./lab2avx2 $b $1 >>plot/dataavx2$2; done;

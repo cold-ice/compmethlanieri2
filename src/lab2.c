@@ -36,6 +36,7 @@ inline __m128i cpack(__m128i xre,__m128i xim) {
 
 }*/
 
+#ifdef scalar
 void componentwise_multiply_real_scalar(int16_t *x,int16_t *y,int16_t *z,uint16_t N) {
 	int i;
 	for(i=0; i<N; i++){
@@ -46,7 +47,9 @@ void componentwise_multiply_real_scalar(int16_t *x,int16_t *y,int16_t *z,uint16_
 		#endif
 	}
 }
+#endif
 
+#ifdef SSE4
 void componentwise_multiply_real_sse4(int16_t *x, int16_t *y, int16_t *z, uint16_t N) {
 	uint16_t i;
 	for(i=0; i<N; i+=8){
@@ -60,38 +63,37 @@ void componentwise_multiply_real_sse4(int16_t *x, int16_t *y, int16_t *z, uint16
 		#endif
 	}
 }
+#endif
 
-void componentwise_multiply_real_avx2(int16_t *x, int16_t *y, int16_t *z, uint16_t N) {
+/*void componentwise_multiply_real_avx2(int16_t *x, int16_t *y, int16_t *z, uint16_t N) {
 	uint16_t i;
 	for(i=0; i<N; i+=16){
-		// The following commented code was used before knowing of the existence of the aligned_alloc facility. The new version, in principle, allows to better compare the performance of the AVX2 implementation with respect to SSE4 since the setup of the componentwise_multiply_real functions are identical, with the exception of the data type.
-		/*__m256i x256 = _mm256_loadu_si256((__m256i *)&x[i]);
+		// This function was used before knowing about the existence of the aligned_alloc facility. The new version, in principle, allows to better compare the performance of the AVX2 implementation with respect to SSE4 since the setup of the componentwise_multiply_real functions are identical, with the exception of the data type.
+		__m256i x256 = _mm256_loadu_si256((__m256i *)&x[i]);
 		__m256i y256 = _mm256_loadu_si256((__m256i *)&y[i]);
  		x256 = _mm256_mulhrs_epi16(x256, y256);
-		_mm256_storeu_si256((__m256i *)&z[i], x256);*/
-		__m256i *x256 = (__m256i *)&x[i];
-		__m256i *y256 = (__m256i *)&y[i];
-		__m256i *z256 = (__m256i *)&z[i];
-		// The mulhrs multiplication function was employed in the AVX2 case as well. Please refer to the description of the SSE4 version to have more detailed information. 
- 		*z256 = _mm256_mulhrs_epi16(*x256, *y256);
+		_mm256_storeu_si256((__m256i *)&z[i], x256);
 		#ifdef DEBUG
 			printf("%hu %d\n", i/16, z[i]);
 		#endif
 	}
-}
+}*/
 
+#ifdef AVX2 
 void componentwise_multiply_real_avx2_opt(int16_t *x, int16_t *y, int16_t *z, uint16_t N) {
 	uint16_t i;
 	for(i=0; i<N; i+=16){
 		__m256i *x256 = (__m256i *)&x[i];
 		__m256i *y256 = (__m256i *)&y[i];
 		__m256i *z256 = (__m256i *)&z[i];
+		// The mulhrs multiplication function was employed in the AVX2 case as well. Please refer to the description of the SSE4 version to have more detailed information. 
  		*z256 = _mm256_mulhrs_epi16(*x256, *y256);
 		#ifdef DEBUG
 			printf("%hu %d\n", i/8, z[i]);
 		#endif
 	}
 }
+#endif
 
 // Not yet tested as it is not possible to compile the following function without without the appropriate architecture
 /*void componentwise_multiply_real_avx512(int16_t *x, int16_t *y, int16_t *z, uint16_t N) {
@@ -106,30 +108,17 @@ void componentwise_multiply_real_avx2_opt(int16_t *x, int16_t *y, int16_t *z, ui
 
 int main(int argc, char* argv[]) {
 
-	uint16_t arch, N, i, Ntest;
+	uint16_t N, i, Ntest;
 	int16_t *xv, *yv, *zv;
-	char archs[6];
 	time_stats_t ts;
 
-	if(argc!=4){
-		printf("Arugments: architecture(0=scalar, 1=sse4, 2=avx2) array_length (must be a multiple of 16) number_of_tests\n");
+	if(argc!=3){
+		printf("Arugments: array_length (must be a multiple of 16) number_of_tests\n");
    	abort();
 	}
 
-	arch=atoi(argv[1]);
-	if(arch<0 || arch>2){
-		printf("architecture must be between 0-2\n");
-		abort();
-	} else if(arch==0) {
-		snprintf(archs, 6, "Scalar");
-	} else if(arch==1) {
-		snprintf(archs, 6, "SSE4");
-	} else if(arch==2) {
-		snprintf(archs, 6, "AVX2");
-	}
-
 	// Given the implementation, the vector size has to be a multiple of 16, otherwise the AVX2 version will cause a segmentation fault as the multiplication function will try to access non allocated memory sections. Notice that this limitation could have been easily solved by doing N%16, adding the remainder to N and forcing the extra array elements to 0. By the same principle, the issue with the SSE4 version could have been taken care of in a similar manner, with the difference that the number of bits to be added is equal to N%8. This however was not done since it didn't serve any particularly useful purpose. Moreover, in order to better compare the performances of the three implementations, it made more sense to properly fill all the vector elements with randomly generated numbers instead of zeros.
-	N=atoi(argv[2]);
+	N=atoi(argv[1]);
 	if(N%16!=0) {
 		printf("Inappropriate vector size, must be a multiple of 16.\n");
 		abort();
@@ -141,7 +130,7 @@ int main(int argc, char* argv[]) {
 	zv=aligned_alloc(32, N*sizeof(int16_t));
 
 	// To perform one test per architecture wouldn't be enough to assess performances in a satisfactory way, since the execution of commands happens in a non deterministic manner. Therefore, multiple tests are performed when using a certain vector length. The resulting timestamp is then divided by the number of tests in order to have an average execution time.
-	Ntest=atoi(argv[3]);
+	Ntest=atoi(argv[2]);
 
 	FILE *x, *y, *z;
 	// The input files X and Y contain randomly generated 16 bit numbers. These numbers are large enough so that the Q15 result of the multiplication is generally not equal to 0.
@@ -187,7 +176,7 @@ int main(int argc, char* argv[]) {
 	reset_meas(&ts);
 	start_meas(&ts);
 	for(i=0; i<Ntest; i++){
-		switch(arch){	
+		/*switch(arch){	
 			case 0:
 				componentwise_multiply_real_scalar(xv, yv, zv, N);
 				break;
@@ -200,10 +189,21 @@ int main(int argc, char* argv[]) {
 			default:
 				printf("Invalid argument for architecture: %d. It must be between 0 and 2.\n", arch);
 				break;
-		}
+		}*/
+		#ifdef scalar
+			componentwise_multiply_real_scalar(xv, yv, zv, N);
+		#endif
+
+		#ifdef SSE4
+			componentwise_multiply_real_sse4(xv, yv, zv, N);
+		#endif
+
+		#ifdef AVX2
+			componentwise_multiply_real_avx2_opt(xv, yv, zv, N);
+		#endif
 	}
 	stop_meas(&ts);
-	printf("%s %hu %lld %lld\n", archs, N, ts.diff/Ntest, ts.max);
+	printf("%hu %lld %lld\n", N, ts.diff/Ntest, ts.max);
 
 	// Write results in the output file Z. This is rather useless for testing purposes and it solely allowed to assess the correct functionality of the various multiplication functions.
 	z=fopen("Z", "w");
