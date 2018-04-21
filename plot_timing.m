@@ -5,9 +5,9 @@ clc
 test=0;
 arch=0;
 
-As= sprintf('~/Documents/Eurecom/CompMeth/assignment2/work/plot/datasf');
-Bs= sprintf('~/Documents/Eurecom/CompMeth/assignment2/work/plot/datasse4f');
-Cs= sprintf('~/Documents/Eurecom/CompMeth/assignment2/work/plot/dataavx2f');
+As= sprintf('~/Documents/Eurecom/CompMeth/assignment2/work/plot/datas');
+Bs= sprintf('~/Documents/Eurecom/CompMeth/assignment2/work/plot/datasse4');
+Cs= sprintf('~/Documents/Eurecom/CompMeth/assignment2/work/plot/dataavx2');
 
 A=readtable(As);
 B=readtable(Bs);
@@ -25,8 +25,8 @@ y3=C{:,2};
 fig=figure;
 title('Time vs input bits (fast optimization)')
  
-xlabel('Input data size [bit]')
-ylabel('Time')
+xlabel('Input size [bit]')
+ylabel('Time [tick]')
 hold on
 grid on
 

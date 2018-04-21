@@ -12,18 +12,17 @@
 #include "time_meas.h"
 
 // example SIMD macros, not necessary to be used, write your own
-/*extern __m128i reflip;
+extern __m128i reflip;
 __m128i mmtmpb;
 __m128i cpack_tmp1,cpack_tmp2;
 
 inline void cmult(__m128i a,__m128i b, __m128i *re32, __m128i *im32) {
 
-	mmtmpb    = _mm_sign_epi16(b, reflip);// *(__m128i*)reflip);
-	*re32     = _mm_madd_epi16(a,mmtmpb);
-	mmtmpb    = _mm_shufflelo_epi16(b,_MM_SHUFFLE(2,3,0,1));
-	mmtmpb    = _mm_shufflehi_epi16(mmtmpb,_MM_SHUFFLE(2,3,0,1));
+	mmtmpb = _mm_sign_epi16(b, reflip);// *(__m128i*)reflip);
+	*re32  = _mm_madd_epi16(a,mmtmpb);
+	mmtmpb = _mm_shufflelo_epi16(b,_MM_SHUFFLE(2,3,0,1));
+	mmtmpb = _mm_shufflehi_epi16(mmtmpb,_MM_SHUFFLE(2,3,0,1));
 	*im32  = _mm_madd_epi16(a,mmtmpb);
-
 }
 
 inline __m128i cpack(__m128i xre,__m128i xim) {
@@ -34,7 +33,7 @@ inline __m128i cpack(__m128i xre,__m128i xim) {
 	cpack_tmp2 = _mm_srai_epi32(cpack_tmp2,15);
 	return(_mm_packs_epi32(cpack_tmp1,cpack_tmp2));
 
-}*/
+}
 
 #ifdef scalar
 void componentwise_multiply_real_scalar(int16_t *x,int16_t *y,int16_t *z,uint16_t N) {
