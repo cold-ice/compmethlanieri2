@@ -1,5 +1,5 @@
 
-lab2s:     file format elf64-x86-64
+../lab2s:     file format elf64-x86-64
 
 
 Disassembly of section .init:

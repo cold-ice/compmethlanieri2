@@ -1,13 +1,13 @@
 clear all
-close all
+%close all
 clc
 
 test=0;
 arch=0;
 
-As= sprintf('~/Documents/Eurecom/CompMeth/assignment2/work/plot/datas');
-Bs= sprintf('~/Documents/Eurecom/CompMeth/assignment2/work/plot/datasse4');
-Cs= sprintf('~/Documents/Eurecom/CompMeth/assignment2/work/plot/dataavx2');
+As= sprintf('~/Documents/Eurecom/CompMeth/assignment2/work/plot/test3/datasf');
+Bs= sprintf('~/Documents/Eurecom/CompMeth/assignment2/work/plot/test3/datasse4f');
+Cs= sprintf('~/Documents/Eurecom/CompMeth/assignment2/work/plot/test3/dataavx2f');
 
 A=readtable(As);
 B=readtable(Bs);
@@ -23,10 +23,14 @@ x3=C{:,1};
 y3=C{:,2};
 
 fig=figure;
-title('Time vs input bits (fast optimization)')
+%title('Ticks vs input size (no optimization)')
+%title('Ticks vs input size (optimization level 1)')
+%title('Ticks vs input size (optimization level 2)')
+%title('Ticks vs input size (optimization level 3)')
+title('Ticks vs input size (fast optimization)')
  
-xlabel('Input size [bit]')
-ylabel('Time [tick]')
+xlabel('Input size [elements]')
+ylabel('Time [ticks]')
 hold on
 grid on
 
