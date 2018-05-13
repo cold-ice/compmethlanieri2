@@ -11,6 +11,9 @@
 #include <immintrin.h> //AVX2
 #include "time_meas.h"
 
+// Defines for shuffling
+#define SHUFFLE 0b10110001
+
 // example SIMD macros, not necessary to be used, write your own
 extern __m128i reflip;
 __m128i mmtmpb;
@@ -46,15 +49,26 @@ void componentwise_multiply_real_scalar(int16_t *x,int16_t *y,int16_t *z,uint16_
 		#endif
 	}
 }
+
+void componentwise_multiply_complex_scalar(int16_t *x, int16_t *y, int16_t *z, uint16_t N) {
+	uint16_t i;
+	for(i=0; i<N; i=i+2){
+		z[i]=(int16_t) ( ( (int32_t)x[i] * (int32_t)y[i] - ( (int32_t)x[i+1] * (int32_t)y[i+1])) >> 15);
+		z[i+1]=(int16_t) ( ( (int32_t)x[i] * (int32_t)y[i+1] + ( (int32_t)x[i+1] * (int32_t)y[i])) >> 15);
+	}
+}
 #endif
 
 #ifdef SSE4
 void componentwise_multiply_real_sse4(int16_t *x, int16_t *y, int16_t *z, uint16_t N) {
 	uint16_t i;
+	__m128i *x128;
+	__m128i *y128;
+	__m128i *z128;
 	for(i=0; i<N; i+=8){
-		__m128i *x128 = (__m128i *)&x[i];
-		__m128i *y128 = (__m128i *)&y[i];
-		__m128i *z128 = (__m128i *)&z[i];
+		x128 = (__m128i *) &x[i];
+		y128 = (__m128i *) &y[i];
+		z128 = (__m128i *) &z[i];
 		// The mulhrs version was chosen out of the various multiplication functions since it is the most suitable one. As it allows to preserve the most useful part of the result (namely bits 30 to 15) and rounds it before storing it in memory. Refer to https://software.intel.com/sites/landingpage/IntrinsicsGuide/#expand=3704,3725&text=_mm_mulhrs_epi16. Notice that the epi16 at the end of the function name specifies the number of bits of each element to be multiplied.
  		*z128 = _mm_mulhrs_epi16(*x128, *y128);
 		#ifdef DEBUG
@@ -62,34 +76,80 @@ void componentwise_multiply_real_sse4(int16_t *x, int16_t *y, int16_t *z, uint16
 		#endif
 	}
 }
-#endif
 
-		// This function was used before knowing about the existence of the aligned_alloc facility. The new version, in principle, allows to better compare the performance of the AVX2 implementation with respect to SSE4 since the setup of the componentwise_multiply_real functions are identical, with the exception of the data type.
-
-/*void componentwise_multiply_real_avx2(int16_t *x, int16_t *y, int16_t *z, uint16_t N) {
+void componentwise_multiply_complex_sse4(int16_t *x, int16_t *y, int16_t *z, uint16_t N) {
 	uint16_t i;
-	for(i=0; i<N; i+=16){
-		__m256i x256 = _mm256_loadu_si256((__m256i *)&x[i]);
-		__m256i y256 = _mm256_loadu_si256((__m256i *)&y[i]);
- 		x256 = _mm256_mulhrs_epi16(x256, y256);
-		_mm256_storeu_si256((__m256i *)&z[i], x256);
+	__m128i *x128=(__m128i *) x;
+	__m128i *y128=(__m128i *) y;
+	__m128i *z128=(__m128i *) z;
+	__m128i tmp, tmp2;
+	__m128i z64r;
+	__m128i z64i;
+
+	for(i=0; i<N/8; i+=1){
+		// MULTIPLY
+		tmp=_mm_sign_epi16(y128[i], _mm_set_epi16(1,-1,1,-1,1,-1,1,-1)); // -yi
+		z64r=_mm_madd_epi16(x128[i], y128[i]); // xr*yr-xi*yi
+		tmp=_mm_shufflehi_epi16(x128[i], _MM_SHUFFLE(2,3,0,1));
+		tmp=_mm_shufflelo_epi16(tmp, _MM_SHUFFLE(2,3,0,1));
+		z64i=_mm_madd_epi16(tmp, y128[i]); // xi*yr+xr*yi
 		#ifdef DEBUG
-			printf("%hu %d\n", i/16, z[i]);
+			printf("Multiplying %d\n", i);
+		#endif
+		// SATURATE & PACK
+		tmp=_mm_srai_epi32(_mm_unpacklo_epi32(z64r, z64i), 15);
+		tmp2=_mm_srai_epi32(_mm_unpackhi_epi32(z64r, z64i), 15);
+		z128[i]=_mm_packs_epi32(tmp, tmp2);
+		#ifdef DEBUG
+			printf("Packing %d\n", i);
 		#endif
 	}
-}*/
+}
+#endif
 
 #ifdef AVX2 
 void componentwise_multiply_real_avx2_opt(int16_t *x, int16_t *y, int16_t *z, uint16_t N) {
 	uint16_t i;
+	__m256i *x256;
+	__m256i *y256;
+	__m256i *z256;
 	for(i=0; i<N; i+=16){
-		__m256i *x256 = (__m256i *)&x[i];
-		__m256i *y256 = (__m256i *)&y[i];
-		__m256i *z256 = (__m256i *)&z[i];
+		x256 = (__m256i *) &x[i];
+		y256 = (__m256i *) &y[i];
+		z256 = (__m256i *) &z[i];
 		// The mulhrs multiplication function was employed in the AVX2 case as well. Please refer to the description of the SSE4 version to have more detailed information. 
  		*z256 = _mm256_mulhrs_epi16(*x256, *y256);
 		#ifdef DEBUG
 			printf("%hu %d\n", i/8, z[i]);
+		#endif
+	}
+}
+
+void componentwise_multiply_complex_avx2(int16_t *x, int16_t *y, int16_t *z, uint16_t N) {
+	uint16_t i;
+	__m256i *x256=(__m256i *) x;
+	__m256i *y256=(__m256i *) y;
+	__m256i *z256=(__m256i *) z;
+	__m256i tmp, tmp2;
+	__m256i z128r;
+	__m256i z128i;
+
+	for(i=0; i<N/16; i+=1){
+		// MULTIPLY
+		tmp=_mm256_sign_epi16(y256[i], _mm256_set_epi16(1,-1,1,-1,1,-1,1,-1,1,-1,1,-1,1,-1,1,-1)); // -yi
+		z128r=_mm256_madd_epi16(x256[i], y256[i]); // xr*yr-xi*yi
+		tmp=_mm256_shufflehi_epi16(x256[i], _MM_SHUFFLE(2,3,0,1));
+		tmp=_mm256_shufflelo_epi16(tmp, _MM_SHUFFLE(2,3,0,1));
+		z128i=_mm256_madd_epi16(tmp, y256[i]); // xi*yr+xr*yi
+		#ifdef DEBUG
+			printf("Multiplying %d\n", i);
+		#endif
+		// SATURATE & PACK
+		tmp=_mm256_srai_epi32(_mm256_unpacklo_epi32(z128r, z128i), 15);
+		tmp2=_mm256_srai_epi32(_mm256_unpackhi_epi32(z128r, z128i), 15);
+		z256[i]=_mm256_packs_epi32(tmp, tmp2);
+		#ifdef DEBUG
+			printf("Packing %d\n", i);
 		#endif
 	}
 }
@@ -110,12 +170,13 @@ void componentwise_multiply_real_avx512(int16_t *x, int16_t *y, int16_t *z, uint
 
 int main(int argc, char* argv[]) {
 
-	uint16_t N, i, Ntest;
+	uint16_t N, i, Ntest, mode;
 	int16_t *xv, *yv, *zv;
 	time_stats_t ts;
+	char output_file[5];
 
-	if(argc!=3){
-		printf("Arguments: array_length (must be a multiple of 16) number_of_tests\n");
+	if(argc!=4){
+		printf("Arguments: array_length (must be a multiple of 16) number_of_tests real/complex (0 or 1)\n");
    	abort();
 	}
 
@@ -133,7 +194,11 @@ int main(int argc, char* argv[]) {
 
 	// To perform one test per architecture wouldn't be enough to assess performances in a satisfactory way, since the execution of commands happens in a non deterministic manner. Therefore, multiple tests are performed when using a certain vector length. The resulting timestamp is then divided by the number of tests in order to have an average execution time.
 	Ntest=atoi(argv[2]);
-
+	if(argc>=4) {
+		mode=atoi(argv[3]);
+	} else {
+		mode=0;
+	}
 	FILE *x, *y, *z;
 	// The input files X and Y contain randomly generated 16 bit numbers. These numbers are large enough so that the Q15 result of the multiplication is generally not equal to 0.
 
@@ -179,28 +244,48 @@ int main(int argc, char* argv[]) {
 	start_meas(&ts);
 	for(i=0; i<Ntest; i++){
 		#ifdef scalar
-			componentwise_multiply_real_scalar(xv, yv, zv, N);
+			if(mode==0) {
+				componentwise_multiply_real_scalar(xv, yv, zv, N);
+			}else{
+				componentwise_multiply_complex_scalar(xv, yv, zv, N);
+			}
 		#endif
 
 		#ifdef SSE4
-			componentwise_multiply_real_sse4(xv, yv, zv, N);
+			if(mode==0){
+				componentwise_multiply_real_sse4(xv, yv, zv, N);
+			}else{
+				componentwise_multiply_complex_sse4(xv, yv, zv, N);
+			}	
 		#endif
 
 		#ifdef AVX2
-			componentwise_multiply_real_avx2_opt(xv, yv, zv, N);
+			if(mode==0){
+				componentwise_multiply_real_avx2_opt(xv, yv, zv, N);
+			}else{
+				componentwise_multiply_complex_avx2(xv, yv, zv, N);
+			}
 		#endif
 	}
 	stop_meas(&ts);
 	printf("%hu %lld %lld\n", N, ts.diff/Ntest, ts.max);
 
 	// Write results in the output file Z. This is rather useless for testing purposes and it solely allowed to assess the correct functionality of the various multiplication functions.
-	z=fopen("Z", "w");
+	if(mode==0)
+		sprintf(output_file, "Z");
+	else
+		sprintf(output_file, "ZC");
+
+	z=fopen(output_file, "w");
 	if(z==NULL){
 		printf("Couldn't create Z\n");
    	abort();
 	}
 	i=0;
 	while(i<N && fprintf(z, "%hi\n", zv[i])!=0){
+		#ifdef DEBUG
+			printf("Printing %d to %s\n", i, output_file);
+		#endif
 		i++;
 	}
 
