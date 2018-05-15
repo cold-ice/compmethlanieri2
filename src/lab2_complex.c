@@ -53,8 +53,8 @@ void componentwise_multiply_real_scalar(int16_t *x,int16_t *y,int16_t *z,uint16_
 void componentwise_multiply_complex_scalar(int16_t *x, int16_t *y, int16_t *z, uint16_t N) {
 	uint16_t i;
 	for(i=0; i<N; i=i+2){
-		z[i]=(int16_t) ( ( (int32_t)x[i] * (int32_t)y[i] - ( (int32_t)x[i+1] * (int32_t)y[i+1])) >> 15);
-		z[i+1]=(int16_t) ( ( (int32_t)x[i] * (int32_t)y[i+1] + ( (int32_t)x[i+1] * (int32_t)y[i])) >> 15);
+		z[i]=(int16_t) ( ( ((int32_t)x[i]*(int32_t)y[i]) - ((int32_t)x[i+1]*(int32_t)y[i+1]) ) >>15 );
+		z[i+1]=(int16_t) ( ( ((int32_t)x[i]*(int32_t)y[i+1]) + ((int32_t)x[i+1]*(int32_t)y[i]) ) >>15 );
 	}
 }
 #endif
@@ -85,11 +85,12 @@ void componentwise_multiply_complex_sse4(int16_t *x, int16_t *y, int16_t *z, uin
 	__m128i tmp, tmp2;
 	__m128i z64r;
 	__m128i z64i;
+	__m128i sign=_mm_set_epi16(-1,1,-1,1,-1,1,-1,1);
 
-	for(i=0; i<N/8; i+=1){
+	for(i=0; i<N/8; i++){
 		// MULTIPLY
-		tmp=_mm_sign_epi16(y128[i], _mm_set_epi16(1,-1,1,-1,1,-1,1,-1)); // -yi
-		z64r=_mm_madd_epi16(x128[i], y128[i]); // xr*yr-xi*yi
+		tmp=_mm_sign_epi16(y128[i], sign); // -yi
+		z64r=_mm_madd_epi16(x128[i], tmp); // xr*yr-xi*yi
 		tmp=_mm_shufflehi_epi16(x128[i], _MM_SHUFFLE(2,3,0,1));
 		tmp=_mm_shufflelo_epi16(tmp, _MM_SHUFFLE(2,3,0,1));
 		z64i=_mm_madd_epi16(tmp, y128[i]); // xi*yr+xr*yi
