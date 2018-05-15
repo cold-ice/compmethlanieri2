@@ -85,11 +85,10 @@ void componentwise_multiply_complex_sse4(int16_t *x, int16_t *y, int16_t *z, uin
 	__m128i tmp, tmp2;
 	__m128i z64r;
 	__m128i z64i;
-	__m128i sign=_mm_set_epi16(-1,1,-1,1,-1,1,-1,1);
 
 	for(i=0; i<N/8; i++){
 		// MULTIPLY
-		tmp=_mm_sign_epi16(y128[i], sign); // -yi
+		tmp=_mm_sign_epi16(y128[i], _mm_set_epi16(-1,1,-1,1,-1,1,-1,1)); // -yi
 		z64r=_mm_madd_epi16(x128[i], tmp); // xr*yr-xi*yi
 		tmp=_mm_shufflehi_epi16(x128[i], _MM_SHUFFLE(2,3,0,1));
 		tmp=_mm_shufflelo_epi16(tmp, _MM_SHUFFLE(2,3,0,1));
@@ -132,22 +131,22 @@ void componentwise_multiply_complex_avx2(int16_t *x, int16_t *y, int16_t *z, uin
 	__m256i *y256=(__m256i *) y;
 	__m256i *z256=(__m256i *) z;
 	__m256i tmp, tmp2;
-	__m256i z128r;
-	__m256i z128i;
+	__m256i z256r;
+	__m256i z256i;
 
 	for(i=0; i<N/16; i+=1){
 		// MULTIPLY
-		tmp=_mm256_sign_epi16(y256[i], _mm256_set_epi16(1,-1,1,-1,1,-1,1,-1,1,-1,1,-1,1,-1,1,-1)); // -yi
-		z128r=_mm256_madd_epi16(x256[i], y256[i]); // xr*yr-xi*yi
+		tmp=_mm256_sign_epi16(y256[i], _mm256_set_epi16(-1,1,-1,1,-1,1,-1,1,-1,1,-1,1,-1,1,-1,1)); // -yi
+		z256r=_mm256_madd_epi16(x256[i], tmp); // xr*yr-xi*yi
 		tmp=_mm256_shufflehi_epi16(x256[i], _MM_SHUFFLE(2,3,0,1));
 		tmp=_mm256_shufflelo_epi16(tmp, _MM_SHUFFLE(2,3,0,1));
-		z128i=_mm256_madd_epi16(tmp, y256[i]); // xi*yr+xr*yi
+		z256i=_mm256_madd_epi16(tmp, y256[i]); // xi*yr+xr*yi
 		#ifdef DEBUG
 			printf("Multiplying %d\n", i);
 		#endif
 		// SATURATE & PACK
-		tmp=_mm256_srai_epi32(_mm256_unpacklo_epi32(z128r, z128i), 15);
-		tmp2=_mm256_srai_epi32(_mm256_unpackhi_epi32(z128r, z128i), 15);
+		tmp=_mm256_srai_epi32(_mm256_unpacklo_epi32(z256r, z256i), 15);
+		tmp2=_mm256_srai_epi32(_mm256_unpackhi_epi32(z256r, z256i), 15);
 		z256[i]=_mm256_packs_epi32(tmp, tmp2);
 		#ifdef DEBUG
 			printf("Packing %d\n", i);
